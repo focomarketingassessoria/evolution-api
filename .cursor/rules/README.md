@@ -1,4 +1,4 @@
-# Evolution API Cursor Rules
+# Evolution API Cursor Rules.
 
 Este diretório contém as regras e configurações do Cursor IDE para o projeto Evolution API.
 
