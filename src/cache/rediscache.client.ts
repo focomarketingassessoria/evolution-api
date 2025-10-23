@@ -4,18 +4,29 @@ import { createClient, RedisClientType } from 'redis';
 
 class Redis {
   private logger = new Logger('Redis');
-  private client: RedisClientType = null;
+  private client: RedisClientType | null = null;
   private conf: CacheConfRedis;
   private connected = false;
 
   constructor() {
     this.conf = configService.get<CacheConf>('CACHE')?.REDIS;
+
+    // Se não tem URI configurada, não tenta conectar
+    if (!this.conf?.URI) {
+      this.logger.warn('Redis URI not found. Skipping Redis connection.');
+    }
   }
 
-  getConnection(): RedisClientType {
-    if (this.connected) {
+  getConnection(): RedisClientType | null {
+    if (!this.conf?.URI) {
+      return null; // Garantia extra
+    }
+
+    if (this.connected && this.client) {
       return this.client;
-    } else {
+    }
+
+    try {
       this.client = createClient({
         url: this.conf.URI,
       });
@@ -29,8 +40,8 @@ class Redis {
         this.connected = true;
       });
 
-      this.client.on('error', () => {
-        this.logger.error('redis disconnected');
+      this.client.on('error', (err) => {
+        this.logger.error('redis error: ' + err?.message);
         this.connected = false;
       });
 
@@ -39,16 +50,15 @@ class Redis {
         this.connected = false;
       });
 
-      try {
-        this.client.connect();
-        this.connected = true;
-      } catch (e) {
+      this.client.connect().catch((err) => {
+        this.logger.error('redis connect exception: ' + err?.message);
         this.connected = false;
-        this.logger.error('redis connect exception caught: ' + e);
-        return null;
-      }
+      });
 
       return this.client;
+    } catch (e) {
+      this.logger.error('Unexpected Redis error: ' + e);
+      return null;
     }
   }
 }
